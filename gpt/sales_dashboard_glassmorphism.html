@@ -1,0 +1,182 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Sales Dashboard</title>
+    <!-- Latest Plotly.js CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #e0f7fa; /* Icy blue background */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 20px;
+            color: #333;
+            font-size: 2.5em;
+            text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
+        }
+        #upload-container {
+            margin: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.15); /* Glass effect */
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 10px 20px;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #ffffff;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+        }
+        .chart-container {
+            margin: 20px auto;
+            width: 40%;
+            background: rgba(255, 255, 255, 0.2); /* Glass effect */
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Interactive Sales Performance Dashboard</h1>
+    
+    <!-- File Upload Section -->
+    <div id="upload-container">
+        <input type="file" id="file-input" accept=".json" />
+    </div>
+
+    <!-- Chart Containers -->
+    <div class="chart-container" id="sales-trend"></div>
+    <div class="chart-container" id="category-sales"></div>
+    <div class="chart-container" id="best-selling-pizzas"></div>
+    <div class="chart-container" id="time-sales"></div>
+    <div class="chart-container" id="size-sales"></div>
+
+    <script>
+        // Add event listener for file input
+        document.getElementById('file-input').addEventListener('change', handleFileUpload);
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const jsonData = JSON.parse(e.target.result);
+                    generateDashboard(jsonData);
+                };
+                reader.readAsText(file);
+            } else {
+                alert("Please upload a valid JSON file.");
+            }
+        }
+
+        function generateDashboard(data) {
+            // Preprocess data for visualizations
+            const totalSales = {};
+            const categorySales = {};
+            const pizzaSales = {};
+            const timeRanges = {"Morning": 0, "Afternoon": 0, "Evening": 0};
+            const sizeSales = {};
+
+            data.forEach(item => {
+                // Total Sales Over Time
+                const date = item.order_date;
+                totalSales[date] = (totalSales[date] || 0) + item.total_price;
+
+                // Sales by Pizza Category
+                const category = item.pizza_category;
+                categorySales[category] = (categorySales[category] || 0) + item.total_price;
+
+                // Best-Selling Pizzas
+                const pizza = item.pizza_name;
+                pizzaSales[pizza] = (pizzaSales[pizza] || 0) + item.quantity;
+
+                // Sales Distribution by Time of Day
+                const time = item.order_time.split(':')[0];
+                if (time >= 6 && time < 12) timeRanges["Morning"] += item.total_price;
+                else if (time >= 12 && time < 18) timeRanges["Afternoon"] += item.total_price;
+                else timeRanges["Evening"] += item.total_price;
+
+                // Sales by Pizza Size
+                const size = item.pizza_size;
+                sizeSales[size] = (sizeSales[size] || 0) + item.total_price;
+            });
+
+            // Total Sales Over Time (Bar Chart)
+            Plotly.newPlot('sales-trend', [{
+                x: Object.keys(totalSales),
+                y: Object.values(totalSales),
+                type: 'bar',
+                marker: {color: '#1e88e5'}
+            }], {
+                title: 'Total Sales Over Time',
+                xaxis: {title: 'Order Date'},
+                yaxis: {title: 'Total Sales (USD)'}
+            });
+
+            // Sales by Pizza Category (Bar Chart)
+            Plotly.newPlot('category-sales', [{
+                x: Object.keys(categorySales),
+                y: Object.values(categorySales),
+                type: 'bar',
+                marker: {color: '#f57c00'}
+            }], {
+                title: 'Sales by Pizza Category',
+                xaxis: {title: 'Pizza Category'},
+                yaxis: {title: 'Total Sales (USD)'}
+            });
+
+            // Best-Selling Pizzas (Bar Chart)
+            const sortedPizzas = Object.entries(pizzaSales).sort((a, b) => b[1] - a[1]);
+            Plotly.newPlot('best-selling-pizzas', [{
+                x: sortedPizzas.map(p => p[0]),
+                y: sortedPizzas.map(p => p[1]),
+                type: 'bar',
+                marker: {color: '#43a047'}
+            }], {
+                title: 'Best-Selling Pizzas',
+                xaxis: {title: 'Pizza Name'},
+                yaxis: {title: 'Quantity Sold'}
+            });
+
+            // Sales Distribution by Time of Day (Pie Chart)
+            Plotly.newPlot('time-sales', [{
+                labels: Object.keys(timeRanges),
+                values: Object.values(timeRanges),
+                type: 'pie',
+                hole: 0.4
+            }], {
+                title: 'Sales Distribution by Time of Day'
+            });
+
+            // Sales by Pizza Size (Donut Chart)
+            Plotly.newPlot('size-sales', [{
+                labels: Object.keys(sizeSales),
+                values: Object.values(sizeSales),
+                type: 'pie',
+                hole: 0.5
+            }], {
+                title: 'Sales by Pizza Size'
+            });
+        }
+    </script>
+</body>
+</html>
